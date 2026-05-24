@@ -9,6 +9,16 @@ const space = Space_Grotesk({ subsets: ['latin'], variable: '--font-space' });
 export const metadata: Metadata = {
   title: 'TEMANCODING | Vibe Coding Assistant',
   description: 'Mau bikin apa hari ini?',
+  openGraph: {
+    images: [
+      {
+        url: 'https://storage.googleapis.com/timetraq-public/other/temankecil/capture%20temancoding.png',
+        width: 1200,
+        height: 630,
+        alt: 'TEMANCODING Preview',
+      },
+    ],
+  },
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
