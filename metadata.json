@@ -1,0 +1,6 @@
+{
+  "name": "TEMANCODING",
+  "description": "Vibe coding assistant that generates application architecture and PRDs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
