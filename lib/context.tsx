@@ -14,8 +14,8 @@ interface AppContextType {
   logout: () => void;
   // Note: to deduct credits robustly over DB, we should do it server-side.
   // These frontend functions are kept for compatibility but should trigger a session update or be removed.
-  addCredits: (amount: number) => void;
-  deductCredit: () => boolean;
+  addCredits: (amount: number) => Promise<void>;
+  deductCredit: () => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
