@@ -6,11 +6,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { motion } from 'motion/react';
+import { useSession } from 'next-auth/react';
 
 export default function Home() {
   const [idea, setIdea] = useState('');
   const [typedText, setTypedText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const { data: session } = useSession();
 
   const fullText = "Ceritakan idemu dengan bahasa yang santai.\nKami akan merancang arsitektur dan langkah pembuatannya.";
 
@@ -35,19 +38,36 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!idea.trim()) return;
+    if (!idea.trim() || isSubmitting) return;
     
-    // In a real app we'd save this to PG DB, here we generate an ID and pass via local storage for prototyping
-    const projectId = uuidv4();
-    localStorage.setItem(`project_${projectId}`, JSON.stringify({
-      id: projectId,
-      idea: idea,
-      createdAt: new Date().toISOString()
-    }));
-    
-    router.push(`/project/${projectId}/questions`);
+    setIsSubmitting(true);
+    try {
+      if (session?.user) {
+        // Save to DB
+        const res = await fetch('/api/projects/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idea }),
+        });
+        if (!res.ok) throw new Error('Failed to create project');
+        const data = await res.json();
+        router.push(`/project/${data.id}/questions`);
+      } else {
+        // Save to localStorage for prototyping if not logged in
+        const projectId = uuidv4();
+        localStorage.setItem(`project_${projectId}`, JSON.stringify({
+          id: projectId,
+          idea: idea,
+          createdAt: new Date().toISOString()
+        }));
+        router.push(`/project/${projectId}/questions`);
+      }
+    } catch (error) {
+      console.error(error);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -81,23 +101,23 @@ export default function Home() {
           transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           className="w-full max-w-3xl flex flex-col items-center"
         >
-          <form onSubmit={handleSubmit} className="w-full bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-xl rounded-2xl p-6 shadow-2xl">
+          <form onSubmit={handleSubmit} className="w-full bg-zinc-800/60 border border-zinc-600/50 backdrop-blur-xl rounded-2xl p-6 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
             <textarea
               value={idea}
               onChange={(e) => setIdea(e.target.value)}
               placeholder="isi dengan ide singkat mu, ga usah terlalu detail..."
-              className="w-full bg-transparent border-none focus:outline-none focus:ring-0 text-xl text-zinc-300 placeholder-zinc-600 resize-none h-32"
+              className="w-full bg-transparent border-none focus:outline-none focus:ring-0 text-xl text-white placeholder-zinc-400 resize-none h-32"
               autoFocus
             />
             
             <div className="flex items-center justify-end mt-4">
               <button
                 type="submit"
-                disabled={!idea.trim()}
-                className="px-6 py-2.5 bg-white text-black font-bold rounded-xl flex items-center gap-2 hover:bg-zinc-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:shadow-none"
+                disabled={!idea.trim() || isSubmitting}
+                className="px-6 py-2.5 bg-white text-black font-bold rounded-xl flex items-center gap-2 hover:bg-zinc-100 transition-all shadow-[0_0_25px_rgba(255,255,255,0.2)] hover:shadow-[0_0_35px_rgba(255,255,255,0.4)] disabled:opacity-50 disabled:shadow-none"
               >
-                Generate Architecture
-                <ArrowRight className="w-4 h-4" />
+                {isSubmitting ? 'Memproses...' : 'Generate Architecture'}
+                {!isSubmitting && <ArrowRight className="w-4 h-4" />}
               </button>
             </div>
           </form>

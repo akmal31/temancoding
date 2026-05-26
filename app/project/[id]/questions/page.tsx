@@ -4,31 +4,28 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { useAppContext } from '@/lib/context';
-import { Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowRight, ArrowLeft, Save } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useSession } from 'next-auth/react';
 
 export default function QuestionsPage() {
   const params = useParams();
   const router = useRouter();
   const { user, deductCredit } = useAppContext();
+  const { data: session, status } = useSession();
   
   const [project, setProject] = useState<any>(null);
   const [questions, setQuestions] = useState<string[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (status === 'loading') return;
+    
     const id = params.id as string;
-    const stored = localStorage.getItem(`project_${id}`);
-    
-    if (!stored) {
-      router.replace('/');
-      return;
-    }
-    
-    const parsed = JSON.parse(stored);
     
     const fetchQuestions = async (idea: string, projId: string, projData: any) => {
       try {
@@ -43,8 +40,19 @@ export default function QuestionsPage() {
         
         setQuestions(data.questions);
         const updated = { ...projData, questions: data.questions, answers: {} };
-        localStorage.setItem(`project_${projId}`, JSON.stringify(updated));
         
+        if (!session?.user) {
+          localStorage.setItem(`project_${projId}`, JSON.stringify(updated));
+        } else {
+          // It's in DB, we should also save questions/answers to DB
+          await fetch('/api/projects/update', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ id: projId, answers: updated }) // Store full data map in answers for now
+          });
+        }
+        
+        setProject(updated);
       } catch (err) {
         console.error(err);
         setError('Gagal mendapatkan pertanyaan dari AI. Coba muat ulang.');
@@ -52,40 +60,91 @@ export default function QuestionsPage() {
         setLoading(false);
       }
     };
-    
-    // Disable exact setState in effect warning for now
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProject(parsed);
-    
-    if (parsed.questions && parsed.questions.length > 0) {
-      setQuestions(parsed.questions);
-      setAnswers(parsed.answers || {});
-      setLoading(false);
-    } else {
-      fetchQuestions(parsed.idea, id, parsed);
-    }
-  }, [params.id, router]);
+
+    const loadProject = async () => {
+      let parsed = null;
+      if (session?.user) {
+        try {
+          const res = await fetch(`/api/projects/get?id=${id}`);
+          if (res.ok) {
+            const dbProject = await res.json();
+            parsed = dbProject.answers || { idea: dbProject.idea, id: dbProject.id }; // Fallback to wrap answers 
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        const stored = localStorage.getItem(`project_${id}`);
+        if (stored) {
+          parsed = JSON.parse(stored);
+        }
+      }
+
+      if (!parsed) {
+        // If still no project, might be invalid
+        router.replace('/');
+        return;
+      }
+      
+      setProject(parsed);
+      
+      if (parsed.questions && parsed.questions.length > 0) {
+        setQuestions(parsed.questions);
+        setAnswers(parsed.answers || {});
+        setLoading(false);
+      } else {
+        fetchQuestions(parsed.idea, id, parsed);
+      }
+    };
+
+    loadProject();
+  }, [params.id, router, status, session]);
 
   const handleAnswer = (index: number, val: string) => {
     const newAnswers = { ...answers, [index]: val };
     setAnswers(newAnswers);
     
-    // Save draft
-    if (project) {
+    // Auto-save local draft only if not logged in
+    if (project && !session?.user) {
       const updated = { ...project, answers: newAnswers };
       localStorage.setItem(`project_${project.id}`, JSON.stringify(updated));
       setProject(updated);
     }
   };
 
+  const handleSaveDraft = async () => {
+    if (!session?.user || !project) return;
+    setSavingDraft(true);
+    try {
+      const updated = { ...project, answers };
+      await fetch('/api/projects/update', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ id: params.id, answers: updated }) 
+      });
+      setProject(updated);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const handleGeneratePRD = async () => {
-    // Explicitly save the answers right before generating or redirecting
     if (project) {
       const updated = { ...project, answers };
-      localStorage.setItem(`project_${project.id}`, JSON.stringify(updated));
+       if (!session?.user) {
+        localStorage.setItem(`project_${project.id}`, JSON.stringify(updated));
+       } else {
+        await fetch('/api/projects/update', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ id: params.id, answers: updated }) 
+        });
+       }
     }
 
-    if (!user) {
+    if (!session?.user) {
       router.push(`/login?redirect=/project/${project?.id || params.id}/questions`);
       return;
     }
@@ -106,7 +165,7 @@ export default function QuestionsPage() {
       const res = await fetch('/api/generate-prd', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea: project.idea, answers: mappedAnswers }),
+        body: JSON.stringify({ idea: project.idea, answers: mappedAnswers, id: params.id }),
       });
       
       const data = await res.json();
@@ -115,9 +174,14 @@ export default function QuestionsPage() {
       
       // Save PRD
       const updated = { ...project, prd: data.prd };
-      localStorage.setItem(`project_${project.id}`, JSON.stringify(updated));
+      await fetch('/api/projects/update', { // Set to completed and update result
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ id: params.id, answers: updated })  // Actually we need a completed endpoint, but for now we store in answers
+      });
+      localStorage.setItem(`project_${project.id || params.id}`, JSON.stringify(updated)); // Also keep it local for /prd page fallback if it reads local
       
-      router.push(`/project/${project.id}/prd`);
+      router.push(`/project/${project.id || params.id}/prd`);
     } catch (err) {
       console.error(err);
       setError('Gagal membuat PRD. Silakan coba lagi.');
@@ -134,7 +198,7 @@ export default function QuestionsPage() {
           <ArrowLeft className="w-4 h-4" /> Batal & Kembali
         </button>
         
-        {loading ? (
+        {loading || status === 'loading' ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
             <p className="text-zinc-400 animate-pulse">AI lagi nyiapin pertanyaan buat ide kamu...</p>
@@ -146,12 +210,12 @@ export default function QuestionsPage() {
             
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
               <h3 className="text-sm text-zinc-500 font-medium mb-2 uppercase tracking-wider">Ide Kamu</h3>
-              <p className="text-lg text-zinc-300 italic">&quot;{project?.idea}&quot;</p>
+              <p className="text-lg text-zinc-300 italic">"{project?.idea}"</p>
             </div>
 
             <div>
               <h1 className="text-3xl font-space font-bold mb-2">Yuk, jelasin dikit lagi!</h1>
-              <p className="text-zinc-400 mb-8">Biar hasil arsitektur &amp; PRD nya akurat, jawab pertanyaan singkat ini ya. Ga harus panjang-panjang.</p>
+              <p className="text-zinc-400 mb-8">Biar hasil arsitektur & PRD nya akurat, jawab pertanyaan singkat ini ya. Ga harus panjang-panjang.</p>
               
               <div className="space-y-8">
                 {questions.map((q, i) => (
@@ -170,7 +234,20 @@ export default function QuestionsPage() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-8 border-t border-white/10">
+            <div className="flex justify-between items-center pt-8 border-t border-white/10">
+              <div>
+                {session?.user && (
+                   <button
+                    onClick={handleSaveDraft}
+                    disabled={savingDraft || generating}
+                    className="flex items-center gap-2 text-zinc-400 hover:text-white px-4 py-2 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors text-sm"
+                  >
+                    {savingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Simpan Draft
+                  </button>
+                )}
+              </div>
+              
               <button
                 onClick={handleGeneratePRD}
                 disabled={generating}

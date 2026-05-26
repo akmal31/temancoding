@@ -10,10 +10,35 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
   ],
+  secret: process.env.NEXTAUTH_SECRET || "fallback_secret_for_dev_mode_only",
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if (account?.provider === "google") {
         try {
+          // Initialize tables if they don't exist
+          await query(`
+            CREATE TABLE IF NOT EXISTS public.users (
+              user_id UUID PRIMARY KEY,
+              name TEXT,
+              email TEXT UNIQUE,
+              avatar TEXT,
+              credits INTEGER DEFAULT 8
+            )
+          `);
+          await query(`
+            CREATE TABLE IF NOT EXISTS public.projects (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+              title TEXT,
+              idea TEXT NOT NULL,
+              answers JSONB,
+              status TEXT NOT NULL DEFAULT 'draft',
+              result JSONB,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+          `);
+
           // Check if user exists
           const res = await query('SELECT * FROM public.users WHERE email = $1', [user.email]);
           if (res.rows.length === 0) {
@@ -23,12 +48,10 @@ export const authOptions: NextAuthOptions = {
                VALUES ($1, $2, $3, $4, $5)`,
               [user.id || uuidv4(), user.name, user.email, user.image, 8]
             );
-          } else {
-             // Optional: Update avatar or name if needed, but we don't have to.
           }
         } catch (error) {
           console.error("Error creating user in DB during sign in:", error);
-          return true; // Still allow sign in to proceed even if db recording fails
+          // Still allow sign in to proceed even if db recording fails
         }
       }
       return true;

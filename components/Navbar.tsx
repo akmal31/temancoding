@@ -12,7 +12,7 @@ export function Navbar() {
   return (
     <nav className="relative z-10 px-6 sm:px-10 py-6 sm:py-8 flex items-center justify-between w-full">
       <Link href="/" className="flex items-center group">
-        <img src="https://storage.googleapis.com/timetraq-public/other/temankecil/Temancoding%20(1).png" alt="Temancoding Logo" className="h-10 sm:h-12 w-auto object-contain" />
+        <img src="https://storage.googleapis.com/timetraq-public/other/temankecil/Logo%20Teman%20Coding%20trans.png" alt="Temancoding Logo" className="h-10 sm:h-12 w-auto object-contain" />
       </Link>
 
       <div className="flex items-center gap-4 sm:gap-6">
