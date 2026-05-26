@@ -28,7 +28,7 @@ export const authOptions: NextAuthOptions = {
           await query(`
             CREATE TABLE IF NOT EXISTS public.projects (
               id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-              user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+              user_id UUID,
               title TEXT,
               idea TEXT NOT NULL,
               answers JSONB,
