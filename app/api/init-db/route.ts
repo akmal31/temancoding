@@ -6,10 +6,15 @@ export async function GET() {
     // Enable pgcrypto for gen_random_uuid() if needed
     await query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
 
-    // Create users table
+    // Force drop tables to reset schema correctly for UUID issues
+    await query(`DROP TABLE IF EXISTS public.transactions CASCADE;`);
+    await query(`DROP TABLE IF EXISTS public.projects CASCADE;`);
+    await query(`DROP TABLE IF EXISTS public.users CASCADE;`);
+
+    // Create users table explicitly without UUID type constraint to avoid NextAuth id mismatch
     await query(`
       CREATE TABLE IF NOT EXISTS public.users (
-        user_id UUID PRIMARY KEY,
+        user_id TEXT PRIMARY KEY,
         name TEXT,
         email TEXT UNIQUE,
         avatar TEXT,
@@ -21,7 +26,7 @@ export async function GET() {
     await query(`
       CREATE TABLE IF NOT EXISTS public.projects (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID,
+        user_id TEXT,
         title TEXT,
         idea TEXT NOT NULL,
         answers JSONB,
@@ -29,6 +34,18 @@ export async function GET() {
         result JSONB,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+
+    // Create transactions table
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT,
+        amount INTEGER NOT NULL,
+        credits_added INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `);
 

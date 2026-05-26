@@ -18,7 +18,7 @@ export const authOptions: NextAuthOptions = {
           // Initialize tables if they don't exist
           await query(`
             CREATE TABLE IF NOT EXISTS public.users (
-              user_id UUID PRIMARY KEY,
+              user_id TEXT PRIMARY KEY,
               name TEXT,
               email TEXT UNIQUE,
               avatar TEXT,
@@ -28,7 +28,7 @@ export const authOptions: NextAuthOptions = {
           await query(`
             CREATE TABLE IF NOT EXISTS public.projects (
               id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-              user_id UUID,
+              user_id TEXT,
               title TEXT,
               idea TEXT NOT NULL,
               answers JSONB,
@@ -46,7 +46,7 @@ export const authOptions: NextAuthOptions = {
             await query(
               `INSERT INTO public.users (user_id, name, email, avatar, credits) 
                VALUES ($1, $2, $3, $4, $5)`,
-              [user.id || uuidv4(), user.name, user.email, user.image, 8]
+              [uuidv4(), user.name, user.email, user.image, 8]
             );
           }
         } catch (error) {
