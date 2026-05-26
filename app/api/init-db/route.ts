@@ -7,9 +7,16 @@ export async function GET() {
     await query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
 
     // Force drop tables to reset schema correctly for UUID issues
-    await query(`DROP TABLE IF EXISTS public.transactions CASCADE;`);
-    await query(`DROP TABLE IF EXISTS public.projects CASCADE;`);
-    await query(`DROP TABLE IF EXISTS public.users CASCADE;`);
+    // Or ALTER them safely if they want to keep data
+    try {
+      await query(`ALTER TABLE public.projects DROP CONSTRAINT IF EXISTS projects_user_id_fkey;`);
+      await query(`ALTER TABLE public.users ALTER COLUMN user_id TYPE TEXT;`);
+      await query(`ALTER TABLE public.projects ALTER COLUMN user_id TYPE TEXT;`);
+      await query(`ALTER TABLE public.transactions ALTER COLUMN user_id TYPE TEXT;`);
+    } catch(err) {
+      console.log('Skipping alter tables (might not exist yet)');
+    }
+
 
     // Create users table explicitly without UUID type constraint to avoid NextAuth id mismatch
     await query(`
