@@ -63,17 +63,24 @@ export default function QuestionsPage() {
 
     const loadProject = async () => {
       let parsed = null;
+      let dbFailed = false;
+
       if (session?.user) {
         try {
           const res = await fetch(`/api/projects/get?id=${id}`);
           if (res.ok) {
             const dbProject = await res.json();
             parsed = dbProject.answers || { idea: dbProject.idea, id: dbProject.id }; // Fallback to wrap answers 
+          } else {
+            dbFailed = true;
           }
         } catch (e) {
           console.error(e);
+          dbFailed = true;
         }
-      } else {
+      }
+
+      if (!session?.user || dbFailed) {
         const stored = localStorage.getItem(`project_${id}`);
         if (stored) {
           parsed = JSON.parse(stored);

@@ -10,11 +10,11 @@ export async function GET() {
     // Or ALTER them safely if they want to keep data
     try {
       await query(`ALTER TABLE public.projects DROP CONSTRAINT IF EXISTS projects_user_id_fkey;`);
-      await query(`ALTER TABLE public.users ALTER COLUMN user_id TYPE TEXT;`);
-      await query(`ALTER TABLE public.projects ALTER COLUMN user_id TYPE TEXT;`);
-      await query(`ALTER TABLE public.transactions ALTER COLUMN user_id TYPE TEXT;`);
+      await query(`ALTER TABLE public.users ALTER COLUMN user_id TYPE TEXT USING user_id::TEXT;`);
+      await query(`ALTER TABLE public.projects ALTER COLUMN user_id TYPE TEXT USING user_id::TEXT;`);
+      await query(`ALTER TABLE public.transactions ALTER COLUMN user_id TYPE TEXT USING user_id::TEXT;`);
     } catch(err) {
-      console.log('Skipping alter tables (might not exist yet)');
+      console.log('Skipping alter tables (might not exist yet or already altered):', err);
     }
 
 

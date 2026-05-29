@@ -16,21 +16,50 @@ export default function PRDPage() {
 
   useEffect(() => {
     const id = params.id as string;
-    const stored = localStorage.getItem(`project_${id}`);
     
-    if (!stored) {
-      router.replace('/');
-      return;
-    }
-    
-    const parsed = JSON.parse(stored);
-    if (!parsed.prd) {
-      router.replace(`/project/${id}/questions`);
-      return;
-    }
-    
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProject(parsed);
+    const loadPrd = async () => {
+      let parsed = null;
+      let dbFailed = false;
+
+      // Ensure we check session first if needed, but since we don't have session status 
+      // directly here, let's just attempt fetch and gracefully fail to localStorage
+      try {
+        const res = await fetch(`/api/projects/get?id=${id}`);
+        if (res.ok) {
+           const dbProject = await res.json();
+           parsed = dbProject.answers || { idea: dbProject.idea, id: dbProject.id, prd: dbProject.prd_result };
+           
+           if (!parsed.prd && dbProject.prd_result) {
+              parsed.prd = dbProject.prd_result;
+           }
+        } else {
+           dbFailed = true;
+        }
+      } catch (err) {
+        dbFailed = true;
+      }
+
+      if (!parsed || dbFailed) {
+        const stored = localStorage.getItem(`project_${id}`);
+        if (stored) {
+          parsed = JSON.parse(stored);
+        }
+      }
+
+      if (!parsed) {
+        router.replace('/');
+        return;
+      }
+      
+      if (!parsed.prd) {
+        router.replace(`/project/${id}/questions`);
+        return;
+      }
+      
+      setProject(parsed);
+    };
+
+    loadPrd();
   }, [params.id, router]);
 
   const handlePrint = () => {

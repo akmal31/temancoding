@@ -10,15 +10,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id, answers, questions } = await req.json();
+    const { id, answers } = await req.json();
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    
+    // We expect `answers` to carry the payload. `answers.idea` should contain the idea if it's migrating
+    const ideaText = answers?.idea || 'Untitled Idea';
+    const title = ideaText.slice(0, 30) + (ideaText.length > 30 ? '...' : '');
 
     const res = await query(
-      `UPDATE public.projects 
-       SET answers = $1, updated_at = NOW()
-       WHERE id = $2 AND user_id = (SELECT user_id FROM public.users WHERE email = $3)
+      `INSERT INTO public.projects (id, user_id, title, idea, answers, status, updated_at)
+       VALUES (
+         $1, 
+         (SELECT user_id FROM public.users WHERE email = $2), 
+         $3, 
+         $4, 
+         $5, 
+         'draft', 
+         NOW()
+       )
+       ON CONFLICT (id) DO UPDATE 
+       SET answers = EXCLUDED.answers,
+           updated_at = NOW(),
+           user_id = COALESCE(public.projects.user_id, EXCLUDED.user_id)
        RETURNING id`,
-      [answers, id, session.user.email]
+      [id, session.user.email, title, ideaText, answers]
     );
 
     if (res.rows.length === 0) {
