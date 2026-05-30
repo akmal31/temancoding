@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { query } from "@/lib/db";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -9,10 +10,30 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
+    ...(process.env.NODE_ENV !== "production"
+      ? [
+          CredentialsProvider({
+            name: "Local Bypass",
+            credentials: {},
+            async authorize() {
+              return {
+                id: "local-dev-user-id",
+                name: "Akil (Local Dev)",
+                email: "localdev@example.com",
+                image: "https://api.dicebear.com/7.x/avataaars/svg?seed=localdev",
+              };
+            },
+          }),
+        ]
+      : []),
   ],
   secret: process.env.NEXTAUTH_SECRET || "fallback_secret_for_dev_mode_only",
   callbacks: {
     async signIn({ user, account }) {
+      if (account?.provider === "credentials") {
+        return true; 
+      }
+      
       if (account?.provider === "google") {
         try {
           // Initialize tables if they don't exist
@@ -46,7 +67,7 @@ export const authOptions: NextAuthOptions = {
             await query(
               `INSERT INTO public.users (user_id, name, email, avatar, credits) 
                VALUES ($1, $2, $3, $4, $5)`,
-              [uuidv4(), user.name, user.email, user.image, 8]
+              [user.id || uuidv4(), user.name, user.email, user.image, 8]
             );
           }
         } catch (error) {
@@ -57,6 +78,11 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async session({ session, token }) {
+      if (session?.user?.email === "localdev@example.com") {
+        session.user.id = "local-dev-user-id";
+        session.user.credits = 8;
+        return session;
+      }
       if (session?.user?.email) {
         try {
           const res = await query('SELECT user_id, credits, avatar FROM public.users WHERE email = $1', [session.user.email]);
@@ -75,6 +101,32 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+  },
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: { httpOnly: true, sameSite: 'none', path: '/', secure: true }
+    },
+    callbackUrl: {
+      name: `__Secure-next-auth.callback-url`,
+      options: { sameSite: 'none', path: '/', secure: true }
+    },
+    csrfToken: {
+      name: `__Host-next-auth.csrf-token`,
+      options: { httpOnly: true, sameSite: 'none', path: '/', secure: true }
+    },
+    pkceCodeVerifier: {
+      name: `__Secure-next-auth.pkce.code_verifier`,
+      options: { httpOnly: true, sameSite: 'none', path: '/', secure: true }
+    },
+    state: {
+      name: `__Secure-next-auth.state`,
+      options: { httpOnly: true, sameSite: 'none', path: '/', secure: true }
+    },
+    nonce: {
+      name: `__Secure-next-auth.nonce`,
+      options: { httpOnly: true, sameSite: 'none', path: '/', secure: true }
+    }
   },
   pages: {
     signIn: '/login',

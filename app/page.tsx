@@ -18,6 +18,36 @@ export default function Home() {
   const fullText = "Ceritakan idemu dengan bahasa yang santai.\nKami akan merancang arsitektur dan langkah pembuatannya.";
 
   useEffect(() => {
+    // If user is logged in, check if there's a pending idea
+    if (session?.user) {
+      const pendingIdea = localStorage.getItem('pending_idea');
+      if (pendingIdea) {
+        localStorage.removeItem('pending_idea');
+        setIdea(pendingIdea);
+        
+        // Auto submit the idea to create project
+        const createPendingProject = async () => {
+          setIsSubmitting(true);
+          try {
+            const res = await fetch('/api/projects/create', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ idea: pendingIdea }),
+            });
+            if (!res.ok) throw new Error('Failed to create project');
+            const data = await res.json();
+            router.push(`/project/${data.id}/questions`);
+          } catch (error) {
+            console.error(error);
+            setIsSubmitting(false);
+          }
+        };
+        createPendingProject();
+      }
+    }
+  }, [session, router]);
+
+  useEffect(() => {
     let currentText = '';
     let currentIndex = 0;
     
@@ -55,14 +85,10 @@ export default function Home() {
         const data = await res.json();
         router.push(`/project/${data.id}/questions`);
       } else {
-        // Save to localStorage for prototyping if not logged in
-        const projectId = uuidv4();
-        localStorage.setItem(`project_${projectId}`, JSON.stringify({
-          id: projectId,
-          idea: idea,
-          createdAt: new Date().toISOString()
-        }));
-        router.push(`/project/${projectId}/questions`);
+        // Save the idea temporarily
+        localStorage.setItem('pending_idea', idea);
+        // Redirect to login page
+        router.push('/login');
       }
     } catch (error) {
       console.error(error);

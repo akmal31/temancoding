@@ -1,7 +1,14 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY || '',
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    }
+  }
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,8 +37,11 @@ Contoh output:
 Pastikan HANYA MENGEMBALIKAN array JSON valid, tanpa markdown \`\`\`json atau teks lain di luar array.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+      }
     });
 
     const text = response.text || '[]';
@@ -41,8 +51,8 @@ Pastikan HANYA MENGEMBALIKAN array JSON valid, tanpa markdown \`\`\`json atau te
     const questions = JSON.parse(cleanedText);
 
     return NextResponse.json({ questions });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating questions:', error);
-    return NextResponse.json({ error: 'Failed to generate questions' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to generate questions', details: error?.message || String(error) }, { status: 500 });
   }
 }
