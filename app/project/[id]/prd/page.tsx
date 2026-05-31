@@ -27,10 +27,12 @@ export default function PRDPage() {
         const res = await fetch(`/api/projects/get?id=${id}`);
         if (res.ok) {
            const dbProject = await res.json();
-           parsed = dbProject.answers || { idea: dbProject.idea, id: dbProject.id, prd: dbProject.prd_result };
+           parsed = dbProject.answers || { idea: dbProject.idea, id: dbProject.id };
            
-           if (!parsed.prd && dbProject.prd_result) {
-              parsed.prd = dbProject.prd_result;
+           // prd might be stored in 'result.prd' or in 'answers.prd'
+           const dbPrd = dbProject.result?.prd || dbProject.answers?.prd;
+           if (dbPrd) {
+              parsed.prd = dbPrd;
            }
         } else {
            dbFailed = true;

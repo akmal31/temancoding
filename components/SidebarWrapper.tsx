@@ -33,11 +33,11 @@ export function SidebarWrapper({ children }: { children: React.ReactNode }) {
   }, [session, pathname]); // re-fetch when navigation happens (to update draft/completion status)
 
   if (status === 'loading') {
-    return <div className="flex w-full h-screen">{children}</div>;
+    return <>{children}</>;
   }
 
   if (!session?.user) {
-    return <div className="flex w-full h-screen">{children}</div>;
+    return <>{children}</>;
   }
 
   return (

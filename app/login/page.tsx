@@ -20,37 +20,12 @@ function LoginContent() {
       return;
     }
     
-    const width = 500;
-    const height = 600;
-    const left = typeof window !== 'undefined' ? window.screenX + (window.outerWidth - width) / 2 : 0;
-    const top = typeof window !== 'undefined' ? window.screenY + (window.outerHeight - height) / 2 : 0;
-    
-    // We direct the popup to NextAuth's signin route and tell it to redirect to /auth-success when done
-    const authUrl = `/api/auth/signin/google?callbackUrl=${encodeURIComponent('/auth-success')}`;
-    const popup = window.open(authUrl, 'google-login', `width=${width},height=${height},left=${left},top=${top}`);
-    
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        window.removeEventListener('message', handleMessage);
-        window.location.href = redirect;
-      }
-    };
-    
-    if (typeof window !== 'undefined') {
-      window.addEventListener('message', handleMessage);
-      
-      const timer = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(timer);
-          window.removeEventListener('message', handleMessage);
-          window.location.href = redirect;
-        }
-      }, 1000);
-    }
+    // Instead of using a window popup, use standard NextAuth provider sign-in with redirect
+    signIn('google', { callbackUrl: redirect });
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center relative p-6">
+    <main className="flex-1 w-full min-h-screen flex flex-col items-center justify-center relative p-6">
       <Link href="/" className="absolute top-8 left-8 flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
         <ArrowLeft className="w-5 h-5" />
         <span>Kembali</span>

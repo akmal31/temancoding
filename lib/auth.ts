@@ -43,9 +43,17 @@ export const authOptions: NextAuthOptions = {
               name TEXT,
               email TEXT UNIQUE,
               avatar TEXT,
-              credits INTEGER DEFAULT 8
+              credits INTEGER DEFAULT 8,
+              role TEXT DEFAULT 'user',
+              password TEXT DEFAULT ''
             )
           `);
+          
+          try {
+             await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'`);
+             await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT DEFAULT ''`);
+          } catch(e) {}
+
           await query(`
             CREATE TABLE IF NOT EXISTS public.projects (
               id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -59,14 +67,19 @@ export const authOptions: NextAuthOptions = {
               updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
             )
           `);
+          
+          try {
+             await query(`ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS result JSONB`);
+             await query(`ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
+          } catch(e) {}
 
           // Check if user exists
           const res = await query('SELECT * FROM public.users WHERE email = $1', [user.email]);
           if (res.rows.length === 0) {
-            // Provide an initial credits value
+            // Provide an initial credits value, empty password and 'user' role
             await query(
-              `INSERT INTO public.users (user_id, name, email, avatar, credits) 
-               VALUES ($1, $2, $3, $4, $5)`,
+              `INSERT INTO public.users (user_id, name, email, avatar, credits, role, password) 
+               VALUES ($1, $2, $3, $4, $5, 'user', '')`,
               [user.id || uuidv4(), user.name, user.email, user.image, 8]
             );
           }
