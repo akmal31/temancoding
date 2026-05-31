@@ -21,6 +21,11 @@ export default function QuestionsPage() {
   const [generating, setGenerating] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState("");
+  
+  const [unansweredIndices, setUnansweredIndices] = useState<number[]>([]);
+  const [showUnansweredAlert, setShowUnansweredAlert] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -117,6 +122,10 @@ export default function QuestionsPage() {
   const handleAnswer = (index: number, val: string) => {
     const newAnswers = { ...answers, [index]: val };
     setAnswers(newAnswers);
+    
+    if (unansweredIndices.includes(index) && val.trim() !== '') {
+        setUnansweredIndices(prev => prev.filter(i => i !== index));
+    }
 
     // Auto-save local draft only if not logged in
     if (project && !session?.user) {
@@ -144,7 +153,19 @@ export default function QuestionsPage() {
     }
   };
 
-  const handleGeneratePRD = async () => {
+  const handleGenerateClick = async (regenerate = false) => {
+    // Check for empty answers
+    const emptyIndices = questions.map((_, i) => !answers[i] || answers[i].trim() === "" ? i : -1).filter(i => i !== -1);
+    
+    if (emptyIndices.length > 0) {
+      setUnansweredIndices(emptyIndices);
+      setShowUnansweredAlert(true);
+      setTimeout(() => setShowUnansweredAlert(false), 3000);
+      return;
+    }
+    
+    setUnansweredIndices([]);
+
     if (project) {
       const updated = { ...project, answers };
       if (!session?.user) {
@@ -156,6 +177,7 @@ export default function QuestionsPage() {
           body: JSON.stringify({ id: params.id, answers: updated }),
         });
       }
+      setProject(updated);
     }
 
     if (!session?.user) {
@@ -165,16 +187,30 @@ export default function QuestionsPage() {
       return;
     }
 
-    if (!deductCredit()) {
+    if (user && user.credits < 1) {
       router.push(
         `/topup?redirect=/project/${project?.id || params.id}/questions`,
       );
       return;
     }
 
+    setIsRegenerating(regenerate);
+    setShowConfirmModal(true);
+  };
+
+  const executeGeneratePRD = async () => {
+    setShowConfirmModal(false);
     setGenerating(true);
 
     try {
+      const success = await deductCredit();
+      if (!success) {
+        router.push(
+          `/topup?redirect=/project/${project?.id || params.id}/questions`,
+        );
+        return;
+      }
+
       const mappedAnswers = questions.map((q, i) => ({
         pertanyaan: q,
         jawaban: answers[i] || "Belum dijawab",
@@ -219,8 +255,44 @@ export default function QuestionsPage() {
     }
   };
 
+  const isCompleted = project?.status === 'completed' || project?.prd;
+
   return (
     <main className="min-h-screen flex flex-col relative overflow-hidden">
+      {showUnansweredAlert && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-red-500/90 backdrop-blur-md border border-red-500 text-white px-6 py-3 rounded-full flex items-center gap-3 shadow-[0_0_30px_-5px_rgba(239,68,68,0.5)] animate-in slide-in-from-top-4 fade-in">
+          <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          <span className="font-medium text-sm">Masih ada pertanyaan yang belum dijawab.</span>
+        </div>
+      )}
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-zinc-950/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-6 scale-in-95">
+            <div>
+              <h3 className="text-xl font-space font-bold text-white mb-2">Konfirmasi Generate PRD</h3>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                Apakah anda yakin? Melanjutkan proses ini akan mengurangi 1 credit yang anda miliki.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end mt-2">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="px-6 py-2.5 rounded-xl font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors text-sm"
+              >
+                Batal
+              </button>
+              <button
+                onClick={executeGeneratePRD}
+                className="px-6 py-2.5 rounded-xl font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center gap-2 shadow-[0_0_20px_-5px_rgba(99,102,241,0.4)] text-sm"
+              >
+                Ya, Lanjutkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {generating && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950">
           <motion.div
@@ -305,35 +377,47 @@ export default function QuestionsPage() {
                       value={answers[i] || ""}
                       onChange={(e) => handleAnswer(i, e.target.value)}
                       placeholder="Tulis jawabanmu di sini..."
-                      className="w-full min-h-[100px] bg-zinc-900 border border-zinc-800 rounded-xl p-4 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-y text-zinc-100"
+                      className={`w-full min-h-[100px] bg-zinc-900 border rounded-xl p-4 focus:outline-none transition-all resize-y text-zinc-100 ${
+                        unansweredIndices.includes(i)
+                          ? "border-red-500/50 focus:border-red-500 ring-1 ring-red-500/20"
+                          : "border-zinc-800 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50"
+                      }`}
                     />
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-8 border-t border-white/10">
-              <div>
+            <div className="flex flex-col-reverse md:flex-row justify-between items-center gap-4 pt-8 border-t border-white/10">
+              <div className="flex w-full md:w-auto gap-3 flex-col sm:flex-row">
                 {session?.user && (
                   <button
                     onClick={handleSaveDraft}
                     disabled={savingDraft || generating}
-                    className="flex items-center gap-2 text-zinc-400 hover:text-white px-4 py-2 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors text-sm"
+                    className="flex flex-1 sm:flex-none justify-center items-center gap-2 text-zinc-300 hover:text-white px-5 py-3.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition-colors text-sm font-medium"
                   >
                     {savingDraft ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <Save className="w-4 h-4" />
                     )}
-                    Simpan Draft
+                    Simpan Perubahan
+                  </button>
+                )}
+                {isCompleted && (
+                  <button
+                    onClick={() => router.push(`/project/${project.id || params.id}/prd`)}
+                    className="flex flex-1 sm:flex-none justify-center items-center gap-2 text-indigo-400 hover:text-indigo-300 px-5 py-3.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors text-sm font-medium"
+                  >
+                    Buka PRD
                   </button>
                 )}
               </div>
 
               <button
-                onClick={handleGeneratePRD}
+                onClick={() => handleGenerateClick(isCompleted)}
                 disabled={generating}
-                className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white rounded-full px-8 py-4 font-medium transition-all shadow-[0_0_30px_-5px_rgba(99,102,241,0.5)] disabled:opacity-70 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 w-full md:w-auto justify-center bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white rounded-xl md:rounded-full px-8 py-3.5 font-medium transition-all shadow-[0_0_30px_-5px_rgba(99,102,241,0.5)] disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 {generating ? (
                   <>
@@ -342,11 +426,11 @@ export default function QuestionsPage() {
                   </>
                 ) : (
                   <>
-                    <span>Generate Arsitektur & PRD </span>
+                    <span>{isCompleted ? 'Generate Ulang PRD' : 'Generate Arsitektur & PRD'} </span>
                     <span className="bg-black/20 text-xs px-2 py-0.5 rounded-full ml-1">
                       1 Credit
                     </span>
-                    <ArrowRight className="w-4 h-4 ml-1" />
+                    <ArrowRight className="w-4 h-4 ml-1 md:ml-0" />
                   </>
                 )}
               </button>
