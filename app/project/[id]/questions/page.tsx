@@ -4,14 +4,20 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useAppContext } from "@/lib/context";
-import { Loader2, ArrowRight, ArrowLeft, Save } from "lucide-react";
+import {
+  Loader2,
+  ArrowRight,
+  ArrowLeft,
+  Save,
+  CheckCircle2,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useSession } from "next-auth/react";
 
 export default function QuestionsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, deductCredit } = useAppContext();
+  const { user } = useAppContext();
   const { data: session, status } = useSession();
 
   const [project, setProject] = useState<any>(null);
@@ -21,11 +27,12 @@ export default function QuestionsPage() {
   const [generating, setGenerating] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState("");
-  
+
   const [unansweredIndices, setUnansweredIndices] = useState<number[]>([]);
   const [showUnansweredAlert, setShowUnansweredAlert] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [showSaveSuccessAlert, setShowSaveSuccessAlert] = useState(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -122,9 +129,9 @@ export default function QuestionsPage() {
   const handleAnswer = (index: number, val: string) => {
     const newAnswers = { ...answers, [index]: val };
     setAnswers(newAnswers);
-    
-    if (unansweredIndices.includes(index) && val.trim() !== '') {
-        setUnansweredIndices(prev => prev.filter(i => i !== index));
+
+    if (unansweredIndices.includes(index) && val.trim() !== "") {
+      setUnansweredIndices((prev) => prev.filter((i) => i !== index));
     }
 
     // Auto-save local draft only if not logged in
@@ -146,6 +153,8 @@ export default function QuestionsPage() {
         body: JSON.stringify({ id: params.id, answers: updated }),
       });
       setProject(updated);
+      setShowSaveSuccessAlert(true);
+      setTimeout(() => setShowSaveSuccessAlert(false), 3000);
     } catch (e) {
       console.error(e);
     } finally {
@@ -155,15 +164,17 @@ export default function QuestionsPage() {
 
   const handleGenerateClick = async (regenerate = false) => {
     // Check for empty answers
-    const emptyIndices = questions.map((_, i) => !answers[i] || answers[i].trim() === "" ? i : -1).filter(i => i !== -1);
-    
+    const emptyIndices = questions
+      .map((_, i) => (!answers[i] || answers[i].trim() === "" ? i : -1))
+      .filter((i) => i !== -1);
+
     if (emptyIndices.length > 0) {
       setUnansweredIndices(emptyIndices);
       setShowUnansweredAlert(true);
       setTimeout(() => setShowUnansweredAlert(false), 3000);
       return;
     }
-    
+
     setUnansweredIndices([]);
 
     if (project) {
@@ -201,20 +212,15 @@ export default function QuestionsPage() {
   const executeGeneratePRD = async () => {
     setShowConfirmModal(false);
     setGenerating(true);
+    setError("");
 
     try {
-      const success = await deductCredit();
-      if (!success) {
-        router.push(
-          `/topup?redirect=/project/${project?.id || params.id}/questions`,
-        );
-        return;
-      }
-
       const mappedAnswers = questions.map((q, i) => ({
         pertanyaan: q,
         jawaban: answers[i] || "Belum dijawab",
       }));
+
+      const projectState = { ...project, answers };
 
       const res = await fetch("/api/generate-prd", {
         method: "POST",
@@ -222,30 +228,32 @@ export default function QuestionsPage() {
         body: JSON.stringify({
           idea: project.idea,
           answers: mappedAnswers,
+          projectState,
           id: params.id,
         }),
       });
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        if (data.error === "Insufficient credits") {
+           router.push(`/topup?redirect=/project/${project?.id || params.id}/questions`);
+           return;
+        }
+        throw new Error(data.error);
+      }
 
-      // Save PRD
-      const updated = { ...project, prd: data.prd };
-      await fetch("/api/projects/update", {
-        // Set to completed and update result
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: params.id,
-          answers: updated,
-          status: "completed",
-        }),
-      });
+      // Save PRD locally (backend already updated DB)
+      const updated = { ...project, prd: data.prd, status: "completed" };
       localStorage.setItem(
         `project_${project.id || params.id}`,
         JSON.stringify(updated),
-      ); // Also keep it local for /prd page fallback if it reads local
+      );
+      
+      // Update context because credit was deducted on backend
+      await fetch('/api/auth/session?update'); 
+      // Next Auth doesn't have an endpoint like this. 
+      // We will just do a standard redirect, the context syncs on load.
 
       router.push(`/project/${project.id || params.id}/prd`);
     } catch (err) {
@@ -255,14 +263,23 @@ export default function QuestionsPage() {
     }
   };
 
-  const isCompleted = project?.status === 'completed' || project?.prd;
+  const isCompleted = project?.status === "completed" || project?.prd;
 
   return (
     <main className="min-h-screen flex flex-col relative overflow-hidden">
       {showUnansweredAlert && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-red-500/90 backdrop-blur-md border border-red-500 text-white px-6 py-3 rounded-full flex items-center gap-3 shadow-[0_0_30px_-5px_rgba(239,68,68,0.5)] animate-in slide-in-from-top-4 fade-in">
           <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-          <span className="font-medium text-sm">Masih ada pertanyaan yang belum dijawab.</span>
+          <span className="font-medium text-sm">
+            Masih ada pertanyaan yang belum dijawab.
+          </span>
+        </div>
+      )}
+
+      {showSaveSuccessAlert && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-green-500/90 backdrop-blur-md border border-green-500 text-white px-6 py-3 rounded-full flex items-center gap-3 shadow-[0_0_30px_-5px_rgba(34,197,94,0.5)] animate-in slide-in-from-top-4 fade-in">
+          <CheckCircle2 className="w-4 h-4" />
+          <span className="font-medium text-sm">Perubahan telah disimpan.</span>
         </div>
       )}
 
@@ -270,9 +287,12 @@ export default function QuestionsPage() {
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-zinc-950/60 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-6 scale-in-95">
             <div>
-              <h3 className="text-xl font-space font-bold text-white mb-2">Konfirmasi Generate PRD</h3>
+              <h3 className="text-xl font-space font-bold text-white mb-2">
+                Konfirmasi Generate PRD
+              </h3>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                Apakah anda yakin? Melanjutkan proses ini akan mengurangi 1 credit yang anda miliki.
+                Apakah anda yakin? Melanjutkan proses ini akan mengurangi 1
+                credit yang anda miliki.
               </p>
             </div>
             <div className="flex gap-3 justify-end mt-2">
@@ -352,7 +372,9 @@ export default function QuestionsPage() {
               <h3 className="text-sm text-zinc-500 font-medium mb-2 uppercase tracking-wider">
                 Ide Kamu
               </h3>
-              <p className="text-lg text-zinc-300 italic">"{project?.idea}"</p>
+              <p className="text-lg text-zinc-300 italic">
+                &quot;{project?.idea}&quot;
+              </p>
             </div>
 
             <div>
@@ -406,7 +428,9 @@ export default function QuestionsPage() {
                 )}
                 {isCompleted && (
                   <button
-                    onClick={() => router.push(`/project/${project.id || params.id}/prd`)}
+                    onClick={() =>
+                      router.push(`/project/${project.id || params.id}/prd`)
+                    }
                     className="flex flex-1 sm:flex-none justify-center items-center gap-2 text-indigo-400 hover:text-indigo-300 px-5 py-3.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors text-sm font-medium"
                   >
                     Buka PRD
@@ -426,7 +450,11 @@ export default function QuestionsPage() {
                   </>
                 ) : (
                   <>
-                    <span>{isCompleted ? 'Generate Ulang PRD' : 'Generate Arsitektur & PRD'} </span>
+                    <span>
+                      {isCompleted
+                        ? "Generate Ulang PRD"
+                        : "Generate Arsitektur & PRD"}{" "}
+                    </span>
                     <span className="bg-black/20 text-xs px-2 py-0.5 rounded-full ml-1">
                       1 Credit
                     </span>
