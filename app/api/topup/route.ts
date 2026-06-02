@@ -33,41 +33,43 @@ export async function POST(req: NextRequest) {
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
   const origin = host ? `${protocol}://${host}` : process.env.APP_URL || "http://localhost:3000";
 
+  // Pastikan tabel dan kolom yang dibutuhkan sudah ada
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.transactions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id text,
+          amount INTEGER,
+          credits_added INTEGER,
+          status TEXT,
+          ipaymu_trx_id TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+    
+    // Pastikan kolom ipaymu_trx_id ada jika tabel sudah terbuat sebelumnya
+    await query(
+      `ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS ipaymu_trx_id TEXT`
+    );
+  } catch (schemaErr) {
+    console.error("Schema initialization / migration error:", schemaErr);
+  }
+
   // Create transaction in DB first
   let txId = "";
   try {
     const txRes = await query(
       `INSERT INTO public.transactions (user_id, amount, credits_added, status)
-             VALUES ($1, $2, $3, 'pending') RETURNING id`,
+       VALUES ($1, $2, $3, 'pending') RETURNING id`,
       [session.user.id, amount, credits],
     );
     txId = txRes.rows[0].id;
   } catch (err: any) {
-    // Table doesn't exist? let's create it on the fly if needed (good practice for quick prototyping)
-    await query(`
-            CREATE TABLE IF NOT EXISTS public.transactions (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id text,
-                amount INTEGER,
-                credits_added INTEGER,
-                status TEXT,
-                ipaymu_trx_id TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            )
-        `);
-    // Maybe schema mismatch since it was created earlier.
-    try {
-      await query(
-        `ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS ipaymu_trx_id TEXT`,
-      );
-    } catch (e) {}
-
-    const txRes = await query(
-      `INSERT INTO public.transactions (user_id, amount, credits_added, status)
-             VALUES ($1, $2, $3, 'pending') RETURNING id`,
-      [session.user.id, amount, credits],
+    console.error("Gagal membuat record transaksi di database:", err);
+    return NextResponse.json(
+      { error: "Gagal menginisiasi record pembayaran di database: " + err.message },
+      { status: 500 }
     );
-    txId = txRes.rows[0].id;
   }
 
   try {
@@ -132,9 +134,11 @@ export async function POST(req: NextRequest) {
     } else {
       console.error("IPAYMU Error:", ipaymuData);
       
-      let errorMessage = "Failed to create payment session";
+      let errorMessage = "Gagal membuat sesi pembayaran";
       if (ipaymuData.Message === "Invalid domain") {
          errorMessage = `URL Origin ini (${origin}) belum didaftarkan di iPaymu Sandbox/Production. Silakan login ke dashboard iPaymu > Integration > Website, dan tambahkan URL aplikasi ini.`;
+      } else if (ipaymuData.Message === "Invalid IP") {
+         errorMessage = "IP Server (Cloud Run) belum terdaftar di iPaymu. Silakan whitelisting IP statis di dashboard iPaymu, atau hubungi support iPaymu jika butuh men-disable proteksi IP.";
       } else if (ipaymuData.Message) {
          errorMessage = ipaymuData.Message;
       }
