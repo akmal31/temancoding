@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Coins, LogIn, LogOut } from 'lucide-react';
+import { Sparkles, Coins, LogIn, LogOut, Github } from 'lucide-react';
 import { useAppContext } from '@/lib/context';
 
 export function Navbar() {
@@ -16,6 +16,15 @@ export function Navbar() {
       </Link>
 
       <div className="flex items-center gap-4 sm:gap-6">
+        <a 
+          href="https://github.com/akmal31/temancoding"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-zinc-900/80 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition-colors font-medium text-xs sm:text-sm cursor-pointer"
+        >
+          <Github className="w-4 h-4 text-white" />
+          <span className="hidden sm:inline">GitHub</span>
+        </a>
         {user ? (
           <>
             <Link 

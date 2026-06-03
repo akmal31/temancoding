@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { FileText, Edit3, PlusCircle, Film, Menu, X } from 'lucide-react';
+import { FileText, Edit3, PlusCircle, Film, Menu, X, Github } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 type Project = {
@@ -55,10 +55,20 @@ export function SidebarWrapper({ children }: { children: React.ReactNode }) {
             Tutorial Video
           </Link>
 
-          <Link href="/" className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-xl font-medium transition-colors mb-6 text-sm">
+          <Link href="/" className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-xl font-medium transition-colors mb-3 text-sm">
             <PlusCircle className="w-4 h-4 text-indigo-400" />
             New Project
           </Link>
+
+          <a 
+            href="https://github.com/akmal31/temancoding"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800/40 text-zinc-300 hover:text-white border border-zinc-800/80 hover:border-zinc-700/80 hover:bg-zinc-800 rounded-xl font-medium transition-colors mb-6 text-sm"
+          >
+            <Github className="w-4 h-4 text-zinc-400" />
+            GitHub Repository
+          </a>
 
           <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 px-2">Your Projects</h3>
           <div className="flex flex-col gap-1">
@@ -143,11 +153,22 @@ export function SidebarWrapper({ children }: { children: React.ReactNode }) {
               <Link 
                 href="/" 
                 onClick={() => setIsMobileOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-2xl font-medium transition-colors mb-6 text-sm"
+                className="flex items-center gap-3 px-4 py-3 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-2xl font-medium transition-colors mb-3 text-sm"
               >
                 <PlusCircle className="w-5 h-5 text-indigo-400" />
                 <span>New Project</span>
               </Link>
+
+              <a 
+                href="https://github.com/akmal31/temancoding"
+                onClick={() => setIsMobileOpen(false)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-3 bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white rounded-2xl font-medium transition-colors mb-6 text-sm"
+              >
+                <Github className="w-5 h-5 text-zinc-400" />
+                <span>GitHub Repository</span>
+              </a>
 
               <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 px-2">Your Projects</h3>
               <div className="flex flex-col gap-1 overflow-y-auto flex-1">
