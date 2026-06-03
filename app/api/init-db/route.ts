@@ -25,9 +25,22 @@ export async function GET() {
         name TEXT,
         email TEXT UNIQUE,
         avatar TEXT,
-        credits INTEGER DEFAULT 8
+        credits INTEGER DEFAULT 0,
+        role TEXT DEFAULT 'user',
+        password TEXT DEFAULT ''
       )
     `);
+
+    // Ensure credits default is 0 for existing databases, and add expiration & unlimited columns
+    try {
+      await query(`ALTER TABLE public.users ALTER COLUMN credits SET DEFAULT 0;`);
+      await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';`);
+      await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT DEFAULT '';`);
+      await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS credits_expired_at TIMESTAMP WITH TIME ZONE;`);
+      await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_unlimited BOOLEAN DEFAULT FALSE;`);
+    } catch (e) {
+      console.log('Skipping alter user columns:', e);
+    }
 
     // Create projects table
     await query(`
@@ -52,9 +65,42 @@ export async function GET() {
         amount INTEGER NOT NULL,
         credits_added INTEGER NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
+        ipaymu_trx_id TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `);
+
+    // Ensure transactions table column defaults
+    try {
+      await query(`ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS ipaymu_trx_id TEXT;`);
+    } catch(e) {}
+
+    // Create site settings table
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.site_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    `);
+
+    // Seed site settings defaults
+    const defaultSettings = [
+      ['starter_price', '49000'],
+      ['starter_credits', '5'],
+      ['pro_price', '99000'],
+      ['pro_credits', '25'],
+      ['max_price', '179000'],
+      ['max_credits', '-1'],
+      ['tutorial_youtube_url', 'https://www.youtube.com/embed/dQw4w9WgXcQ']
+    ];
+
+    for (const [key, val] of defaultSettings) {
+      await query(`
+        INSERT INTO public.site_settings (key, value)
+        VALUES ($1, $2)
+        ON CONFLICT (key) DO NOTHING
+      `, [key, val]);
+    }
 
     return NextResponse.json({ message: "Database initialized successfully" });
   } catch (error: any) {

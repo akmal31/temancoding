@@ -6,6 +6,8 @@ type User = {
   name: string;
   avatar: string;
   credits: number;
+  credits_expired_at?: string | null;
+  is_unlimited?: boolean;
 } | null;
 
 interface AppContextType {
@@ -28,6 +30,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     name: session.user.name || 'User',
     avatar: session.user.image || `https://api.dicebear.com/7.x/notionists/svg?seed=${session.user.name}`,
     credits: session.user.credits || 0,
+    credits_expired_at: (session.user as any).credits_expired_at || null,
+    is_unlimited: !!(session.user as any).is_unlimited,
   } : null;
 
   const login = () => signIn('google');

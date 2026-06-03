@@ -29,13 +29,22 @@ export async function POST(req: NextRequest) {
             "UPDATE public.transactions SET status = 'success', ipaymu_trx_id = $1 WHERE id = $2",
             [trx_id || tx.ipaymu_trx_id, reference_id],
           );
-          await query(
-            "UPDATE public.users SET credits = credits + $1 WHERE user_id = $2",
-            [tx.credits_added, tx.user_id],
-          );
-          console.log(
-            `Successfully credited ${tx.credits_added} to user ${tx.user_id}`,
-          );
+          
+          if (tx.credits_added === -1) {
+            // "Max" Plan - Unlimited Token
+            await query(
+              "UPDATE public.users SET is_unlimited = TRUE, credits_expired_at = NOW() + INTERVAL '30 days' WHERE user_id = $2",
+              [tx.credits_added, tx.user_id],
+            );
+            console.log(`Successfully credited Unlimited access to user ${tx.user_id}`);
+          } else {
+            // Starter or Pro Plan - Standard Credits
+            await query(
+              "UPDATE public.users SET credits = credits + $1, is_unlimited = FALSE, credits_expired_at = NOW() + INTERVAL '30 days' WHERE user_id = $2",
+              [tx.credits_added, tx.user_id],
+            );
+            console.log(`Successfully credited ${tx.credits_added} credits and set active period for user ${tx.user_id}`);
+          }
         }
       }
     } else if (

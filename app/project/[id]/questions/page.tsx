@@ -198,7 +198,10 @@ export default function QuestionsPage() {
       return;
     }
 
-    if (user && user.credits < 1) {
+    const isExpired = user && user.credits_expired_at ? new Date() > new Date(user.credits_expired_at) : false;
+    const hasAccess = user && (user.is_unlimited && !isExpired || (user.credits >= 1 && !isExpired));
+
+    if (user && !hasAccess) {
       router.push(
         `/topup?redirect=/project/${project?.id || params.id}/questions`,
       );

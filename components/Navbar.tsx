@@ -24,7 +24,15 @@ export function Navbar() {
             >
               <div className="flex items-center gap-2">
                 <Coins className="w-4 h-4 text-amber-400" />
-                <span className="text-sm font-medium text-white">{user.credits} Credits</span>
+                <span className="text-sm font-medium text-white">
+                  {user.is_unlimited && (!user.credits_expired_at || new Date() < new Date(user.credits_expired_at)) ? (
+                    "Unlimited"
+                  ) : user.credits_expired_at && new Date() > new Date(user.credits_expired_at) ? (
+                    "Kredit Expired"
+                  ) : (
+                    `${user.credits} Credits`
+                  )}
+                </span>
               </div>
               <div className="w-[1px] h-4 bg-zinc-700 hidden sm:block"></div>
               <span className="text-xs font-bold text-indigo-400 hover:text-indigo-300 hidden sm:block">TOP UP</span>

@@ -43,15 +43,20 @@ export const authOptions: NextAuthOptions = {
               name TEXT,
               email TEXT UNIQUE,
               avatar TEXT,
-              credits INTEGER DEFAULT 8,
+              credits INTEGER DEFAULT 0,
               role TEXT DEFAULT 'user',
-              password TEXT DEFAULT ''
+              password TEXT DEFAULT '',
+              credits_expired_at TIMESTAMP WITH TIME ZONE,
+              is_unlimited BOOLEAN DEFAULT FALSE
             )
           `);
           
           try {
-             await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'`);
-             await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT DEFAULT ''`);
+             await query(`ALTER TABLE public.users ALTER COLUMN credits SET DEFAULT 0;`);
+             await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';`);
+             await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT DEFAULT '';`);
+             await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS credits_expired_at TIMESTAMP WITH TIME ZONE;`);
+             await query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_unlimited BOOLEAN DEFAULT FALSE;`);
           } catch(e) {}
 
           await query(`
@@ -76,11 +81,11 @@ export const authOptions: NextAuthOptions = {
           // Check if user exists
           const res = await query('SELECT * FROM public.users WHERE email = $1', [user.email]);
           if (res.rows.length === 0) {
-            // Provide an initial credits value, empty password and 'user' role
+            // Provide an initial credits value (0), empty password and 'user' role
             await query(
               `INSERT INTO public.users (user_id, name, email, avatar, credits, role, password) 
                VALUES ($1, $2, $3, $4, $5, 'user', '')`,
-              [user.id || uuidv4(), user.name, user.email, user.image, 8]
+              [user.id || uuidv4(), user.name, user.email, user.image, 0]
             );
           }
         } catch (error) {
@@ -94,19 +99,28 @@ export const authOptions: NextAuthOptions = {
       if (session?.user?.email === "localdev@example.com") {
         session.user.id = "local-dev-user-id";
         session.user.credits = 8;
+        (session.user as any).credits_expired_at = null;
+        (session.user as any).is_unlimited = false;
+        (session.user as any).role = "user";
         return session;
       }
       if (session?.user?.email) {
         try {
-          const res = await query('SELECT user_id, credits, avatar FROM public.users WHERE email = $1', [session.user.email]);
+          const res = await query('SELECT user_id, credits, avatar, credits_expired_at, is_unlimited, role FROM public.users WHERE email = $1', [session.user.email]);
           if (res.rows.length > 0) {
             session.user.id = res.rows[0].user_id;
-            session.user.credits = res.rows[0].credits;
+            session.user.credits = res.rows[0].credits || 0;
             session.user.image = res.rows[0].avatar || session.user.image;
+            (session.user as any).credits_expired_at = res.rows[0].credits_expired_at ? new Date(res.rows[0].credits_expired_at).toISOString() : null;
+            (session.user as any).is_unlimited = !!res.rows[0].is_unlimited;
+            (session.user as any).role = res.rows[0].role || 'user';
           }
         } catch (error) {
           // If DB is not connected, default fallback
-          session.user.credits = 8;
+          session.user.credits = 0;
+          (session.user as any).credits_expired_at = null;
+          (session.user as any).is_unlimited = false;
+          (session.user as any).role = "user";
         }
       }
       return session;

@@ -139,6 +139,11 @@ export async function POST(req: NextRequest) {
          errorMessage = `URL Origin ini (${origin}) belum didaftarkan di iPaymu Sandbox/Production. Silakan login ke dashboard iPaymu > Integration > Website, dan tambahkan URL aplikasi ini.`;
       } else if (ipaymuData.Message === "Invalid IP") {
          errorMessage = "IP Server (Cloud Run) belum terdaftar di iPaymu. Silakan whitelisting IP statis di dashboard iPaymu, atau hubungi support iPaymu jika butuh men-disable proteksi IP.";
+      } else if (ipaymuData.Message && ipaymuData.Message.includes("test transaksi")) {
+         errorMessage = `Terjadi ketidakcocokan Kredensial! Anda menembak API Production tetapi menggunakan API Key / No VA Sandbox (atau sebaliknya). 
+         Langkah Perbaikan:
+         1. Jika ingin PROD LIVE: Update IPAYMU_API_KEY & IPAYMU_VA di Settings menggunakan akun my.ipaymu.com, dan set IPAYMU_ENV="production".
+         2. Jika ingin SANDBOX: Update IPAYMU_API_KEY & IPAYMU_VA di Settings menggunakan akun sandbox.ipaymu.com, dan set IPAYMU_ENV="sandbox".`;
       } else if (ipaymuData.Message) {
          errorMessage = ipaymuData.Message;
       }

@@ -34,15 +34,29 @@ export async function POST(req: NextRequest) {
     
     // Deduct credit if user is authenticated
     if (isAuthenticated) {
-      const userRes = await query('SELECT credits FROM public.users WHERE user_id = $1', [session!.user!.id]);
-      const credits = userRes.rows[0]?.credits || 0;
+      const userRes = await query('SELECT credits, is_unlimited, credits_expired_at FROM public.users WHERE user_id = $1', [session!.user!.id]);
+      const userRow = userRes.rows[0];
+      const credits = userRow?.credits || 0;
+      const isUnlimited = !!userRow?.is_unlimited;
+      const creditsExpiredAt = userRow?.credits_expired_at ? new Date(userRow.credits_expired_at) : null;
+      const now = new Date();
 
-      if (credits <= 0) {
-        return NextResponse.json({ error: 'Insufficient credits' }, { status: 403 });
+      const isExpired = creditsExpiredAt !== null && now > creditsExpiredAt;
+
+      if (isExpired) {
+        return NextResponse.json({ error: 'Masa aktif token / kredit Anda telah habis. Silakan beli paket baru.' }, { status: 403 });
       }
 
-      await query(`UPDATE public.users SET credits = credits - 1 WHERE user_id = $1`, [session!.user!.id]);
-      creditDeducted = true;
+      if (isUnlimited) {
+        // Unlimited tokens: skip deduction and do not flag for refund if it fails
+        creditDeducted = false;
+      } else {
+        if (credits <= 0) {
+          return NextResponse.json({ error: 'Jumlah token / kredit Anda tidak mencukupi.' }, { status: 403 });
+        }
+        await query(`UPDATE public.users SET credits = credits - 1 WHERE user_id = $1`, [session!.user!.id]);
+        creditDeducted = true;
+      }
     }
 
     const payload = answers ? `Ide awal: ${idea}\n\nKlarifikasi tambahan dari user:\n${JSON.stringify(answers, null, 2)}` : `Ide awal: ${idea}`;

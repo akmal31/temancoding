@@ -10,12 +10,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check credits
-    const userRes = await query('SELECT credits FROM public.users WHERE user_id = $1', [session.user.id]);
-    const credits = userRes.rows[0]?.credits || 0;
+    // Check credits, unlimited status, and active period (masa aktif)
+    const userRes = await query('SELECT credits, is_unlimited, credits_expired_at FROM public.users WHERE user_id = $1', [session.user.id]);
+    const userRow = userRes.rows[0];
+    const credits = userRow?.credits || 0;
+    const isUnlimited = !!userRow?.is_unlimited;
+    const creditsExpiredAt = userRow?.credits_expired_at ? new Date(userRow.credits_expired_at) : null;
+    const now = new Date();
+
+    const isExpired = creditsExpiredAt !== null && now > creditsExpiredAt;
+
+    if (isExpired) {
+      return NextResponse.json(
+        { error: 'Masa aktif token / kredit Anda telah habis. Silakan beli paket baru.' },
+        { status: 403 }
+      );
+    }
+
+    if (isUnlimited) {
+      // Unlimited access, no credits deducted
+      return NextResponse.json({ success: true, remaining: credits, isUnlimited: true });
+    }
 
     if (credits <= 0) {
-      return NextResponse.json({ error: 'Insufficient credits' }, { status: 403 });
+      return NextResponse.json({ error: 'Jumlah token / kredit Anda tidak mencukupi. Silakan lakukan pengisian ulang.' }, { status: 403 });
     }
 
     // Deduct 1 credit
