@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="robot-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Antenna Stem -->
+  <rect x="246" y="90" width="20" height="80" rx="10" fill="url(#robot-grad)" />
+  
+  <!-- Antenna Ball -->
+  <circle cx="256" cy="74" r="32" fill="url(#robot-grad)" />
+  
+  <!-- Left Ear -->
+  <rect x="36" y="240" width="54" height="130" rx="27" fill="url(#robot-grad)" />
+  
+  <!-- Right Ear -->
+  <rect x="422" y="240" width="54" height="130" rx="27" fill="url(#robot-grad)" />
+  
+  <!-- Outer Head Frame -->
+  <rect x="74" y="156" width="364" height="290" rx="114" fill="url(#robot-grad)" />
+  
+  <!-- Inner Faceplate (White) -->
+  <rect x="114" y="196" width="284" height="210" rx="84" fill="#ffffff" />
+  
+  <!-- Left Eye -->
+  <circle cx="188" cy="286" r="32" fill="url(#robot-grad)" />
+  
+  <!-- Right Eye -->
+  <circle cx="324" cy="286" r="32" fill="url(#robot-grad)" />
+  
+  <!-- Smiling Mouth -->
+  <path d="M 216,334 A 40,40 0 0,0 296,334" stroke="url(#robot-grad)" stroke-width="14" stroke-linecap="round" fill="none" />
+</svg>

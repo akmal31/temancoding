@@ -8,9 +8,13 @@ const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
 const space = Space_Grotesk({ subsets: ['latin'], variable: '--font-space' });
 
 export const metadata: Metadata = {
-  title: 'TEMANCODING | Vibe Coding Assistant',
+  title: 'TemanCoding | Vibe Coding Assistant Anda',
   description: 'Mau bikin apa hari ini?',
+  icons: {
+    icon: 'https://storage.googleapis.com/timetraq-public/other/temankecil/Favicon%20Teman%20Coding.png',
+  },
   openGraph: {
+    title: 'TemanCoding | Vibe Coding Assistant Anda',
     images: [
       {
         url: 'https://storage.googleapis.com/timetraq-public/other/temankecil/capture%20temancoding.png',
