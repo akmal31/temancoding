@@ -15,6 +15,12 @@ export default function PRDPage() {
   const [project, setProject] = useState<any>(null);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && params.id) {
+      localStorage.setItem("last_visited_path", `/project/${params.id}/prd`);
+    }
+  }, [params.id]);
+
+  useEffect(() => {
     const id = params.id as string;
     
     const loadPrd = async () => {
@@ -78,7 +84,15 @@ export default function PRDPage() {
       
       <div className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10 print:hidden">
-          <button onClick={() => router.push('/')} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium">
+          <button 
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                localStorage.removeItem("last_visited_path");
+              }
+              router.push('/');
+            }} 
+            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium"
+          >
             <ArrowLeft className="w-4 h-4" /> Buat Project Baru
           </button>
           

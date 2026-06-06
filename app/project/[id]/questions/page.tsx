@@ -35,6 +35,12 @@ export default function QuestionsPage() {
   const [showSaveSuccessAlert, setShowSaveSuccessAlert] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && params.id) {
+      localStorage.setItem("last_visited_path", `/project/${params.id}/questions`);
+    }
+  }, [params.id]);
+
+  useEffect(() => {
     if (status === "loading") return;
 
     const id = params.id as string;
@@ -350,7 +356,12 @@ export default function QuestionsPage() {
 
       <div className="flex-1 max-w-4xl w-full mx-auto p-6 py-12">
         <button
-          onClick={() => router.push("/")}
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              localStorage.removeItem("last_visited_path");
+            }
+            router.push("/");
+          }}
           className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-8 text-sm"
         >
           <ArrowLeft className="w-4 h-4" /> Batal & Kembali

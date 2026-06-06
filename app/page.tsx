@@ -19,6 +19,15 @@ export default function Home() {
     "Ceritakan idemu dengan bahasa yang santai.\nKami akan merancang arsitektur dan langkah pembuatannya.";
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const lastPath = localStorage.getItem("last_visited_path");
+      if (lastPath && lastPath !== "/" && lastPath !== "/login") {
+        router.replace(lastPath);
+      }
+    }
+  }, [router]);
+
+  useEffect(() => {
     // If user is logged in, check if there's a pending idea
     if (session?.user) {
       const pendingIdea = localStorage.getItem("pending_idea");

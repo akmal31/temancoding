@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Coins, LogIn, LogOut, Github } from 'lucide-react';
+import { Sparkles, Coins, LogIn, LogOut, Menu } from 'lucide-react';
 import { useAppContext } from '@/lib/context';
 
 export function Navbar() {
@@ -11,20 +11,31 @@ export function Navbar() {
 
   return (
     <nav className="relative z-10 px-6 sm:px-10 py-6 sm:py-8 flex items-center justify-between w-full">
-      <Link href="/" className="flex items-center group">
-        <img src="https://storage.googleapis.com/timetraq-public/other/temankecil/Logo%20Teman%20Coding%20trans.png" alt="Temancoding Logo" className="h-10 sm:h-12 w-auto object-contain" />
-      </Link>
+      <div className="flex items-center gap-3">
+        {user && (
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
+            className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center md:hidden transition-all active:scale-95 cursor-pointer"
+            aria-label="Toggle Navigation Menu"
+            id="mobile-sidebar-trigger"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        <Link 
+          href="/" 
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              localStorage.removeItem("last_visited_path");
+            }
+          }}
+          className="flex items-center group"
+        >
+          <img src="https://storage.googleapis.com/timetraq-public/other/temankecil/Logo%20Teman%20Coding%20trans.png" alt="Temancoding Logo" className="h-10 sm:h-12 w-auto object-contain" />
+        </Link>
+      </div>
 
       <div className="flex items-center gap-4 sm:gap-6">
-        <a 
-          href="https://github.com/akmal31/temancoding"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-zinc-900/80 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition-colors font-medium text-xs sm:text-sm cursor-pointer"
-        >
-          <Github className="w-4 h-4 text-white" />
-          <span className="hidden sm:inline">GitHub</span>
-        </a>
         {user ? (
           <>
             <Link 
