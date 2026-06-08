@@ -114,6 +114,9 @@ export default function QuestionsPage() {
 
       if (!parsed) {
         // If still no project, might be invalid
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('last_visited_path');
+        }
         router.replace("/");
         return;
       }

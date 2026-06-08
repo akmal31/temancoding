@@ -55,6 +55,9 @@ export default function PRDPage() {
       }
 
       if (!parsed) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('last_visited_path');
+        }
         router.replace('/');
         return;
       }
