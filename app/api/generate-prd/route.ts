@@ -79,10 +79,29 @@ Penting:
 - Gunakan bahasa Indonesia baku namun mudah dipahami.
 - Hanya output hasil dokumen Markdown, tanpa ada pesan perkenalan atau penutup.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
+    let response;
+    let lastError;
+    const modelsToTry = ['gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+    
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`Menghasilkan PRD menggunakan model: ${modelName}`);
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+        });
+        if (response && response.text) {
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`Gagal memuat menggunakan model ${modelName}:`, err?.message || err);
+        lastError = err;
+      }
+    }
+
+    if (!response || !response.text) {
+      throw lastError || new Error('Semua model Gemini sedang sibuk atau mengalami gangguan. Silakan coba kembali nanti.');
+    }
     
     const prdResult = response.text;
     

@@ -36,13 +36,32 @@ Contoh output:
 
 Pastikan HANYA MENGEMBALIKAN array JSON valid, tanpa markdown \`\`\`json atau teks lain di luar array.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
+    let response;
+    let lastError;
+    const modelsToTry = ['gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+    
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`Menghasilkan pertanyaan menggunakan model: ${modelName}`);
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+          }
+        });
+        if (response && response.text) {
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`Gagal memuat menggunakan model ${modelName}:`, err?.message || err);
+        lastError = err;
       }
-    });
+    }
+
+    if (!response || !response.text) {
+      throw lastError || new Error('Semua model Gemini sedang sibuk atau mengalami gangguan. Silakan coba kembali nanti.');
+    }
 
     const text = response.text || '[]';
     
