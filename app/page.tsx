@@ -21,7 +21,7 @@ export default function Home() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const lastPath = localStorage.getItem("last_visited_path");
-      if (lastPath && lastPath !== "/" && lastPath !== "/login") {
+      if (lastPath && lastPath !== "/" && lastPath !== "/login" && lastPath !== "/tutorial") {
         router.replace(lastPath);
       }
     }
